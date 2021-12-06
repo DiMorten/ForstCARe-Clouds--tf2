@@ -13,8 +13,8 @@ import sys
 import itertools
 from osgeo import gdal
 import rasterio
-
-
+import pdb
+from icecream import ic
 
 def rgb2gray(rgb):
     return np.dot(rgb[...,:3], [0.2989, 0.5870, 0.1140])
@@ -186,13 +186,16 @@ def Split_Image(obj, rows=1000, cols=1000, no_tiles_h=5, no_tiles_w=5, random_ti
     elif random_tiles == 'fixed':
         # Distribute the tiles from a mask
         mask  = np.load(obj.args.datasets_dir + obj.args.dataset_name + obj.mask_tr_vl_ts_name + '.npy')
+        #print(np.unique(mask, return_counts=True))
+        #pdb.set_trace()
         img = Image.fromarray(np.uint8((mask/2)*255))
         img.save(obj.args.datasets_dir + obj.args.dataset_name + obj.mask_tr_vl_ts_name + '.tiff')
     
     return mask
 
 def Split_in_Patches(rows, cols, patch_size, mask, 
-                     lbl, augmentation_list, cloud_mask, 
+                    #  lbl, augmentation_list, cloud_mask, 
+                     augmentation_list, cloud_mask, 
                      prefix=0, percent=0):
 
     """
@@ -208,7 +211,7 @@ def Split_in_Patches(rows, cols, patch_size, mask,
     step_row = (stride - rows % stride) % stride
     step_col = (stride - cols % stride) % stride
     pad_tuple_msk = ( (overlap//2, overlap//2 + step_row), ((overlap//2, overlap//2 + step_col)) )
-    lbl = np.pad(lbl, pad_tuple_msk, mode = 'symmetric')
+    # lbl = np.pad(lbl, pad_tuple_msk, mode = 'symmetric')
     mask_pad = np.pad(mask, pad_tuple_msk, mode = 'symmetric')
     cloud_mask = np.pad(cloud_mask, pad_tuple_msk, mode = 'symmetric')
 
@@ -225,7 +228,7 @@ def Split_in_Patches(rows, cols, patch_size, mask,
     train_patches, val_patches, test_patches = [], [], []
     only_bck_patches = 0
     cloudy_patches = 0
-    lbl[lbl!=1] = 0
+    # lbl[lbl!=1] = 0
     for i in range(k1):
         for j in range(k2):
             # Train
@@ -235,9 +238,9 @@ def Split_in_Patches(rows, cols, patch_size, mask,
                     continue
                 for k in augmentation_list:
                     train_patches.append((prefix, i*stride, j*stride, k))
-                if not lbl[i*stride:i*stride + patch_size, j*stride:j*stride + patch_size].any():
-                    # train_patches.append((prefix, i*stride, j*stride, 0))
-                    only_bck_patches += 1
+                # if not lbl[i*stride:i*stride + patch_size, j*stride:j*stride + patch_size].any():
+                #     # train_patches.append((prefix, i*stride, j*stride, 0))
+                #     only_bck_patches += 1
             # Test                !!!!!Not necessary with high overlap!!!!!!!!
             elif test_mask[i*stride:i*stride + patch_size, j*stride:j*stride + patch_size].all():
                 test_patches.append((prefix, i*stride, j*stride, 0))
@@ -265,11 +268,11 @@ def create_dataset_coordinates(obj, prefix = 0, padding=True,
                            no_tiles_w, random_tiles=obj.args.mask)
 
     # Loading Labels
-    lbl = np.load(obj.labels_path + obj.labels_name + '.npy')
-    lbl = lbl[obj.lims[0]: obj.lims[1], obj.lims[2]: obj.lims[3]]
-    lbl[lbl==2.0] = 3.0; lbl[lbl==1.0] = 2.0; lbl[lbl==3.0] = 1.0
-    img = Image.fromarray(np.uint8((lbl/2)*255))
-    img.save(obj.labels_path + obj.labels_name + '.tiff')
+    # lbl = np.load(obj.labels_path + obj.labels_name + '.npy')
+    # lbl = lbl[obj.lims[0]: obj.lims[1], obj.lims[2]: obj.lims[3]]
+    # lbl[lbl==2.0] = 3.0; lbl[lbl==1.0] = 2.0; lbl[lbl==3.0] = 1.0
+    # img = Image.fromarray(np.uint8((lbl/2)*255))
+    # img.save(obj.labels_path + obj.labels_name + '.tiff')
 
     # Loading cloud mask
     cloud_mask = np.zeros((rows, cols))    
@@ -282,11 +285,13 @@ def create_dataset_coordinates(obj, prefix = 0, padding=True,
         augmentation_list = [0]                         # Without transformations
     train_patches, val_patches, test_patches, \
     step_row, step_col, overlap = Split_in_Patches(rows, cols, patch_size, 
-                                                   mask_tr_vl_ts, lbl, augmentation_list,
+                                                #    mask_tr_vl_ts, lbl, augmentation_list,
+                                                   mask_tr_vl_ts, augmentation_list,
                                                    cloud_mask, prefix = prefix,
                                                    percent=obj.args.patch_overlap)
     pad_tuple = ( (overlap//2, overlap//2+step_row), (overlap//2, overlap//2+step_col), (0,0) )
-    del lbl, cloud_mask
+    # del lbl, cloud_mask
+    del cloud_mask
     
     print('--------------------')
     print('Training Patches: %d' %(len(train_patches)))
@@ -294,13 +299,17 @@ def create_dataset_coordinates(obj, prefix = 0, padding=True,
     print('Testing Patches: %d' %(len(test_patches)))
     
     data_dic = {}
-
+    # obj.datasetLoader
     # Sentinel 1
     if flag_image[0]:
-        sar_vv = load_tiff_image(obj.sar_path + obj.sar_name[0] + '.tif').astype('float32')
-        sar_vh = load_tiff_image(obj.sar_path + obj.sar_name[1] + '.tif').astype('float32')
-        sar = np.concatenate((np.expand_dims(sar_vv, 2), np.expand_dims(sar_vh, 2)), axis=2)
-        del sar_vh, sar_vv
+        if obj.dataset_name != 'Santarem':
+            sar_vv = load_tiff_image(obj.sar_path + obj.sar_name[0] + '.tif').astype('float32')
+            sar_vh = load_tiff_image(obj.sar_path + obj.sar_name[1] + '.tif').astype('float32')
+            sar = np.concatenate((np.expand_dims(sar_vv, 2), np.expand_dims(sar_vh, 2)), axis=2)
+            del sar_vh, sar_vv
+        else:
+            sar = load_tiff_image(obj.sar_path + obj.sar_name[0] + '.tif').astype('float32')    
+            sar = np.transpose(sar, (1, 2, 0))        
         if cut:
             sar = sar[obj.lims[0]:obj.lims[1], obj.lims[2]:obj.lims[3],:]
         sar[np.isnan(sar)] = np.nanmean(sar)

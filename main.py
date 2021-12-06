@@ -75,7 +75,6 @@ parser.add_argument("--patch_overlap", type=float, default=0.50, help="Overlap p
 
 args = parser.parse_args()
 
-
 def actions():
 
     tf1.reset_default_graph()

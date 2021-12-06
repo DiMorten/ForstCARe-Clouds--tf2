@@ -49,7 +49,7 @@ class cGAN(object):
         self.build_model()
 
         self.data_path = args.datasets_dir + args.dataset_name
-
+        self.dataset_name = args.dataset_name
         if args.dataset_name == 'Para_10m':
             self.lims = np.array([0, 17730, 0, 9200])
             self.sar_path = self.data_path + '/Sentinel1_'

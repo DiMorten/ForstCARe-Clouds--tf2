@@ -258,7 +258,7 @@ def deeplab(self, input_shape, name="", reuse = False, is_train=True):
 
         return model
 
-def atrous_discriminator(self, input_shape, name="", is_train=True, normalization='spectral'):
+def atrous_discriminator(self, input_shape, name="", is_train=True, normalization='batch'):
 
     """
     normalization {'spectral', 'batch'}
